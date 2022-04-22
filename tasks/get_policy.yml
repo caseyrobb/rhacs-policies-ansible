@@ -1,0 +1,15 @@
+- name: get policy
+  ansible.builtin.uri:
+    url: https://{{ acs_host }}/v1/policies/{{ policy.id }}
+    headers:
+      Authorization: 'Bearer {{ acs_token }}'
+    method: GET
+    status_code: 200
+    validate_certs: false
+  register: policy_body
+  no_log: true
+
+- name: check policy {{ policy_body.json.name }}
+  include_tasks:
+    file: write_policy.yml
+  when: policy_body.json.isDefault == false or policy_body.json.isDefault == False

@@ -1,0 +1,16 @@
+---
+- name: Retrieve all non-default policies from ACS and write out individual YAML files
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+  - vars/vault.yml
+
+  vars:
+    acs_host: "{{ vaulted_acs_host }}"
+    acs_token: "{{ vaulted_acs_token }}"
+
+  tasks:
+  - name: Get policies
+    include_tasks:
+      file: tasks/get_policies.yml

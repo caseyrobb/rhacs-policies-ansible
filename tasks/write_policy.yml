@@ -1,0 +1,19 @@
+- name: Write unformatted file to disk
+  ansible.builtin.copy:
+    # filter lastUpdated and id out of the policy body
+    content: '{{ policy_body.json | dict2items | rejectattr("key", "eq", "lastUpdated") | rejectattr("key", "eq", "id") | list | items2dict | to_yaml }}'
+    dest: './files/current_policies/{{ policy_body.json.name | replace("/", "_") | replace(":", "_") }}.yaml'
+  changed_when: false
+  register: policyfile
+
+- name: Format policy YAML
+  ansible.builtin.shell: sed -i 's/^/  /g;s/^  name\:/\- name\:/g' '{{ policyfile.dest }}'
+
+- name: Move name scalar to top
+  ansible.builtin.shell: cat <(egrep '^- name:' '{{ policyfile.dest }}') <(egrep -v '^- name:' '{{ policyfile.dest }}')
+  register: formatted_yaml
+
+- name: Write {{ policy_body.json.name }}.yaml
+  ansible.builtin.copy:
+    content: '{{ formatted_yaml.stdout }}'
+    dest: '{{ policyfile.dest }}'

@@ -1,0 +1,54 @@
+---
+- name: Merge and convert individual policy YAMLs and create a configmap
+  hosts: localhost
+  vars:
+    all_policies: './files/all-policies-merged.yaml'
+    policy_payload: './files/policies-payload.json'
+    policy_cm: './files/policies-cm.yaml'
+
+
+  tasks:
+    - name: Merge all policies into a single file
+      ansible.builtin.assemble:
+        src: ./files/current_policies
+        dest: '{{ all_policies }}'
+        regexp: '^.*\.yaml$'
+
+    - name: Add policy list field
+      ansible.builtin.lineinfile:
+        path: '{{ all_policies }}'
+        line: 'policies:'
+        insertbefore: BOF
+
+    - name: Save resulting file to variable
+      ansible.builtin.shell: cat '{{ all_policies }}'
+      register: allpolicies
+
+    - name: Write policy json payload
+      ansible.builtin.copy:
+        content: '{{ allpolicies.stdout | from_yaml_all | list }}'
+        dest: '{{ policy_payload }}'
+
+    - name: Find oc binary path
+      ansible.builtin.shell: which oc
+      register: oc_bin
+
+    - name: Create configMap from payload
+      ansible.builtin.shell: '{{ oc_bin.stdout }} create cm policies-payload --from-file=files/policies-payload.json -n stackrox --dry-run=client -o yaml'
+      register: policycm
+
+    - name: Write configMap to file
+      ansible.builtin.copy:
+        content: '{{ policycm.stdout }}'
+        dest: '{{ policy_cm }}'
+
+    - name: Cleanup files
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: absent
+      with_items:
+        - '{{ all_policies }}'
+        - '{{ policy_payload }}'
+
+    - debug:
+        msg: 'Policy configMap location: {{ policy_cm }}'
